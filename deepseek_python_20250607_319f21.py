@@ -26,6 +26,8 @@ LIMITES_CLASSE = {
 
 # Função para validar e adicionar jogador
 def adicionar_jogador(nick, ip, classe):
+    global df  # 🔥 Declaração global ANTES de usar df!
+
     # Verifica se o Nick já existe
     if nick in df["Nick"].values:
         return "❌ Este Nick já está registrado!"
@@ -38,7 +40,6 @@ def adicionar_jogador(nick, ip, classe):
     
     # Adiciona o jogador ao DataFrame
     novo_jogador = pd.DataFrame([[nick, ip, classe]], columns=df.columns)
-    global df
     df = pd.concat([df, novo_jogador], ignore_index=True)
     df.to_csv("jogadores.csv", index=False)
     return "✅ Jogador registrado com sucesso!"
