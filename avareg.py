@@ -1,12 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from discord_oauth2 import DiscordOAuthClient  # Nova biblioteca
+import requests
+import base64
+import json
 
-# Configurações do Discord OAuth - agora usando secrets
-CLIENT_ID = st.secrets["DISCORD"]["CLIENT_ID"]
-CLIENT_SECRET = st.secrets["DISCORD"]["CLIENT_SECRET"]
-REDIRECT_URI = st.secrets["DISCORD"]["REDIRECT_URI"]
+# Configurações do Discord OAuth
+CLIENT_ID = st.secrets["DISCORD"]["1380981932107759666"]
+CLIENT_SECRET = st.secrets["DISCORD"]["vOg1cbkQvdXmS-QVQkzOx3KJH0nl9dWF"]
+REDIRECT_URI = st.secrets["DISCORD"]["avareg.streamlit.app"]
 
 # IDs dos administradores
 ADMIN_IDS = ["450677997184221185", "414636718235320341", "238847241240969227", 
@@ -74,40 +76,55 @@ def pagina_admin():
             st.success(f"✅ {len(jogadores_remover)} jogadores removidos!")
             st.rerun()
 
-# Configuração do OAuth2 com discord-oauth2
-oauth = DiscordOAuthClient(
-    client_id=CLIENT_ID,
-    client_secret=CLIENT_SECRET,
-    redirect_uri=REDIRECT_URI,
-    scopes=["identify"]
-)
-
+# Implementação manual do OAuth2
 def verificar_login():
     if 'discord_user' not in st.session_state:
-        # Cria botão de login
-        if st.sidebar.button("Login com Discord"):
-            auth_url = oauth.get_authorization_url()
-            st.session_state.auth_url = auth_url
-            st.rerun()
-        
-        # Se temos uma URL de autenticação, redirecionamos
-        if 'auth_url' in st.session_state:
-            st.experimental_set_query_params(auth_url=st.session_state.auth_url)
-            st.stop()
-            
-        # Processa o callback
         query_params = st.experimental_get_query_params()
+        
+        # Se recebemos o código de autorização
         if 'code' in query_params:
             code = query_params['code'][0]
-            try:
-                token = oauth.get_access_token(code)
-                user = oauth.get_user_info(token)
-                st.session_state.discord_user = user
-                st.experimental_set_query_params()
-                st.rerun()
-            except Exception as e:
-                st.error(f"Erro na autenticação: {str(e)}")
-        return False
+            
+            # Troca o código por um token de acesso
+            data = {
+                'client_id': CLIENT_ID,
+                'client_secret': CLIENT_SECRET,
+                'grant_type': 'authorization_code',
+                'code': code,
+                'redirect_uri': REDIRECT_URI,
+                'scope': 'identify'
+            }
+            
+            headers = {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+            
+            response = requests.post('https://discord.com/api/oauth2/token', data=data, headers=headers)
+            token_data = response.json()
+            
+            if 'access_token' in token_data:
+                # Obtém informações do usuário
+                headers = {
+                    'Authorization': f'Bearer {token_data["access_token"]}'
+                }
+                user_response = requests.get('https://discord.com/api/users/@me', headers=headers)
+                user_data = user_response.json()
+                
+                if 'id' in user_data:
+                    st.session_state.discord_user = user_data
+                    st.experimental_set_query_params()
+                    st.rerun()
+                else:
+                    st.error("Falha ao obter informações do usuário")
+            else:
+                st.error("Falha na autenticação: " + token_data.get('error', 'Erro desconhecido'))
+        
+        # Se não está logado, mostra o botão de login
+        else:
+            auth_url = f"https://discord.com/api/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=identify"
+            st.markdown(f'[Login com Discord]({auth_url})', unsafe_allow_html=True)
+            return False
+        
     return True
 
 # Página principal
