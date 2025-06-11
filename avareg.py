@@ -1,19 +1,25 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 from st_oauth import OAuth2Component
 
-# Configurações (REMOVA SEUS DADOS SENSÍVEIS AQUI ANTES DE COMPARTILHAR)
-CLIENT_ID = "1380981932107759666"
-CLIENT_SECRET = "vOg1cbkQvdXmS-QVQkzOx3KJH0nl9dWF"
-AUTHORIZE_URL = "https://discord.com/api/oauth2/authorize"
-TOKEN_URL = "https://discord.com/api/oauth2/token"
-REDIRECT_URI = "https://avareg.streamlit.app/"
+# Tentar importar Plotly com fallback
+try:
+    import plotly.express as px
+    PLOTLY_INSTALLED = True
+except ImportError:
+    PLOTLY_INSTALLED = False
+    st.warning("Plotly não instalado. Gráficos serão desabilitados.")
+
+# Configurações (REMOVA SUAS CHAVES ANTES DE COMPARTILHAR!)
+CLIENT_ID = st.secrets.get("discord", {}).get("CLIENT_ID", "1380981932107759666")
+CLIENT_SECRET = st.secrets.get("discord", {}).get("CLIENT_SECRET", "vOg1cbkQvdXmS-QVQkzOx3KJH0nl9dWF")
+REDIRECT_URI = "https://seu-app.streamlit.app"
 
 # IDs dos administradores
-ADMIN_IDS = ["450677997184221185", "414636718235320341", "238847241240969227", "1265190976465535010", "277048408689213440", "1240788028352495668"]  # Mantenha apenas IDs válidos
+ADMIN_IDS = ["450677997184221185", "414636718235320341", "238847241240969227", 
+            "1265190976465535010", "277048408689213440", "1240788028352495668"]
 
-# Carrega dados - agora usando st.session_state para manter o estado
+# Carrega dados
 if 'df' not in st.session_state:
     try:
         st.session_state.df = pd.read_csv("jogadores.csv")
@@ -63,8 +69,12 @@ def pagina_admin():
     dados_filtrados = dados_filtrados.sort_values(by=["Classe", "IP"], ascending=[True, False])
     st.dataframe(dados_filtrados)
     
-    fig = px.pie(dados_filtrados, names="Classe", title="Distribuição por Classe")
-    st.plotly_chart(fig, use_container_width=True)
+    # Gráfico apenas se Plotly estiver instalado
+    if PLOTLY_INSTALLED:
+        fig = px.pie(dados_filtrados, names="Classe", title="Distribuição por Classe")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.warning("Instale o Plotly para ver os gráficos")
     
     # Ferramentas admin
     with st.expander("⚙️ Gerenciar Jogadores"):
@@ -79,34 +89,41 @@ def pagina_admin():
 oauth = OAuth2Component(
     CLIENT_ID,
     CLIENT_SECRET,
-    AUTHORIZE_URL,
-    TOKEN_URL,
-    TOKEN_URL,
-    REVOKE_URL,
+    "https://discord.com/api/oauth2/authorize",
+    "https://discord.com/api/oauth2/token",
+    "https://discord.com/api/oauth2/token",
+    "https://discord.com/api/oauth2/token/revoke",
 )
 
-# Verificação de login
 def verificar_login():
     if 'auth' not in st.session_state:
-        auth_result = oauth.authorize_button(
-            name="Login com Discord",
-            icon="discord",
-            redirect_uri=REDIRECT_URI,
-            scope="identify",
-            key="discord_login",
-        )
-        if auth_result:
-            st.session_state.auth = auth_result
-            st.rerun()
-        return False
+        try:
+            auth_result = oauth.authorize_button(
+                name="Login com Discord",
+                icon="discord",
+                redirect_uri=REDIRECT_URI,
+                scope="identify",
+                key="discord_login",
+            )
+            if auth_result:
+                st.session_state.auth = auth_result
+                st.rerun()
+            return False
+        except Exception as e:
+            st.error(f"Erro no login: {str(e)}")
+            return False
     return True
 
 # Página principal
-if verificar_login():
-    user_id = st.session_state.auth["user"]["id"]
-    if str(user_id) in ADMIN_IDS:  # Convertendo para string para comparação
-        pagina_admin()
+try:
+    if verificar_login():
+        user_id = st.session_state.auth["user"]["id"]
+        if str(user_id) in ADMIN_IDS:
+            pagina_admin()
+        else:
+            pagina_publica()
     else:
         pagina_publica()
-else:
-    pagina_publica()
+except Exception as e:
+    st.error(f"Ocorreu um erro: {str(e)}")
+    st.info("Tente recarregar a página")
