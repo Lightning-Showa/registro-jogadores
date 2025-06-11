@@ -1,4 +1,4 @@
 streamlit
 pandas
 plotly
-discord-oauth2
+requests
