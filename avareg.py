@@ -6,9 +6,9 @@ import base64
 import json
 
 # Configurações do Discord OAuth
-CLIENT_ID = st.secrets["DISCORD"]["1380981932107759666"]
-CLIENT_SECRET = st.secrets["DISCORD"]["vOg1cbkQvdXmS-QVQkzOx3KJH0nl9dWF"]
-REDIRECT_URI = st.secrets["DISCORD"]["avareg.streamlit.app"]
+CLIENT_ID = st.secrets["DISCORD"]["CLIENT_ID"]
+CLIENT_SECRET = st.secrets["DISCORD"]["CLIENT_SECRET"]
+REDIRECT_URI = st.secrets["DISCORD"]["REDIRECT_URI"]
 
 # IDs dos administradores
 ADMIN_IDS = ["450677997184221185", "414636718235320341", "238847241240969227", 
